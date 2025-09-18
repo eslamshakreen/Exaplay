@@ -1,0 +1,103 @@
+# Docker Compose configuration for ExaPlay Control API
+# Provides both development and production deployment options
+
+version: "3.8"
+
+services:
+  # Main ExaPlay Control API service
+  exaplay-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: exaplay-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Load from .env file (create from .env.example)
+      - EXAPLAY_HOST=${EXAPLAY_HOST:-192.168.1.174}
+      - EXAPLAY_TCP_PORT=${EXAPLAY_TCP_PORT:-7000}
+      - EXAPLAY_OSC_ENABLE=${EXAPLAY_OSC_ENABLE:-false}
+      - EXAPLAY_OSC_PREFIX=${EXAPLAY_OSC_PREFIX:-exaplay}
+      - EXAPLAY_OSC_LISTEN=${EXAPLAY_OSC_LISTEN:-0.0.0.0:8000}
+      - API_KEY=${API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    env_file:
+      - .env # Create this file with your settings
+    networks:
+      - exaplay-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Optional: Mount logs directory
+    volumes:
+      - ./logs:/app/logs
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
+
+  # Optional: Mock ExaPlay server for testing
+  mock-exaplay:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: mock-exaplay
+    ports:
+      - "7000:7000"
+    command: ["python", "-m", "tests.fixtures.mock_exaplay", "7000", "3600"]
+    networks:
+      - exaplay-network
+    profiles:
+      - testing # Only start with --profile testing
+    restart: "no"
+
+  # Optional: Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: exaplay-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro # SSL certificates
+    depends_on:
+      - exaplay-api
+    networks:
+      - exaplay-network
+    profiles:
+      - production # Only start with --profile production
+    restart: unless-stopped
+
+networks:
+  exaplay-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  # Optional: Persistent log storage
+  logs:
+    driver: local
+# Example usage:
+#
+# Development (with mock ExaPlay):
+#   docker-compose --profile testing up
+#
+# Production:
+#   docker-compose --profile production up -d
+#
+# API only:
+#   docker-compose up exaplay-api
