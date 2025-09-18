@@ -7,8 +7,8 @@ import uvicorn
 # Set environment variables
 os.environ.update({
     "API_KEY": "bscatIi9lN86_cJ_waF_kBz6UubjzU0O0onWOEH1kWWUEIBLJrRaPxEnisb_zyCF",
-    "EXAPLAY_HOST": "10.5.0.2",
-    "EXAPLAY_TCP_PORT": "7000",  # Real ExaPlay TCP port
+    "EXAPLAY_HOST": "192.168.5.237",
+    "EXAPLAY_TCP_PORT": "8100", 
     "EXAPLAY_OSC_ENABLE": "false",
     "LOG_LEVEL": "INFO",
     "CORS_ALLOW_ORIGINS": "http://localhost:3000,http://localhost:5173,http://localhost:8123",
